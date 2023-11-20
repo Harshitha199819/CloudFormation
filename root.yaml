@@ -4,7 +4,7 @@ Resources:
   RecommendationStack:
     Type: "AWS::CloudFormation::Stack"
     Properties:
-      TemplateURL: "https://s3.amazonaws.com/bucket1/Recommendation.yaml"
+      TemplateURL: "https://s3.amazonaws.com/bucket1/Personalize.yaml"
       Parameters:
         KeyParameter: "Value"
 
