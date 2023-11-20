@@ -1,0 +1,119 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Parameters:
+  Solution:
+    Type: String
+    Description: "Amazon Personalize solution"
+  S3BucketName:
+    Type: String
+    Description: "S3 bucket for data storage"
+  DynamoDBTableName:
+    Type: String
+    Description: "DynamoDB table for storing additional data"
+
+Resources:
+  PersonalizeRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service: "personalize.amazonaws.com"
+            Action: "sts:AssumeRole"
+      Policies:
+        - PolicyName: "PersonalizeFullAccess"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action: "s3:*"
+                Resource: !Sub "arn:aws:s3:::${S3BucketName}/*"
+
+  PersonalizeDatasetGroup:
+    Type: "AWS::Personalize::DatasetGroup"
+    Properties:
+      Name: !Ref Solution
+
+  PersonalizeDataset:
+    Type: "AWS::Personalize::Dataset"
+    Properties:
+      DatasetType: "Interactions"
+      DatasetGroupArn: !Ref PersonalizeDatasetGroup
+
+  PersonalizeSchema:
+    Type: "AWS::Personalize::Schema"
+    Properties:
+      Name: "InteractionSchema"
+      Schema: |
+        {
+          "type": "record",
+          "name": "Interactions",
+          "namespace": "com.amazonaws.personalize.schema",
+          "fields": [
+            {
+              "name": "USER_ID",
+              "type": "string"
+            },
+            {
+              "name": "ITEM_ID",
+              "type": "string"
+            },
+            {
+              "name": "TIMESTAMP",
+              "type": "long"
+            },
+            {
+              "name": "ADDITIONAL_FIELD",
+              "type": "string"
+            }
+          ],
+          "version": "1.0"
+        }
+
+  DynamoDBTable:
+    Type: "AWS::DynamoDB::Table"
+    Properties:
+      TableName: !Ref DynamoDBTableName
+      AttributeDefinitions:
+        - AttributeName: "USER_ID"
+          AttributeType: "S"
+      KeySchema:
+        - AttributeName: "USER_ID"
+          KeyType: "HASH"
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+
+  LambdaFunction:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      FunctionName: !Sub "${SolutionName}-LambdaFunction"
+      Handler: "index.handler"
+      Role: !GetAtt PersonalizeRole.Arn
+      FunctionName: "lambda1"
+      Runtime: "nodejs14.x"
+      Timeout: 60
+      MemorySize: 128
+      Code:
+        S3Bucket: "your-lambda-code-bucket"
+        S3Key: "path/to/your/lambda/code.zip"
+      Environment:
+        Variables:
+          DynamoDBTableName: !Ref DynamoDBTableName
+
+  LambdaInvokePermission:
+    Type: "AWS::Lambda::Permission"
+    Properties:
+      Action: "lambda:InvokeFunction"
+      FunctionName: !Ref LambdaFunction
+      Principal: "personalize.amazonaws.com"
+
+  LambdaEventSource:
+    Type: "AWS::Lambda::EventSourceMapping"
+    Properties:
+      EventSourceArn: !GetAtt PersonalizeDataset.KinesisStreamArn
+      FunctionName: !Ref LambdaFunction
+      BatchSize: 100
+      StartingPosition: "LATEST"
