@@ -1,0 +1,16 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Resources:
+  RecommendationStack:
+    Type: "AWS::CloudFormation::Stack"
+    Properties:
+      TemplateURL: "https://s3.amazonaws.com/bucket1/Recommendation.yaml"
+      Parameters:
+        KeyParameter: "Value"
+
+  HostingStack:
+    Type: "AWS::CloudFormation::Stack"
+    Properties:
+      TemplateURL: "https://s3.amazonaws.com/bucket1/Hosting.yaml"
+      Parameters:
+        KeyParameter: "Value"
